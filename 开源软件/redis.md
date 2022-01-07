@@ -34,18 +34,61 @@
 
 拓展数据类型： bitmap，HyperLogLog，GEO
 
-- string：底层由简单动态字符串(Simple Dynamic String, SDS) len+alloc+buf字节数组组成
+- **字符串**： 字符串类型的内部编码有3种, redis会根据当前值的类型和长度决定使用那种内部实现：
+  
+  - int：8字节的长整形
+  - embstr：小于等于39字节的字符串
+- raw：大于39字节的字符串
+  
+  底层由简单动态字符串(Simple Dynamic String, SDS) len+alloc+buf字节数组组成:
+  
   - len: 4个字节，表示 buf 的已用长度。
   - alloc: 4个字节，表示 buf 的实际分配长度
   - buf: 字节数组保存实际数据,'\0'结尾
+  
+- **哈希**：哈希类型的内部编码有2种：
 
-- list： 链表，底层是双向链表，压缩列表实现
-- set: 集合，底层是哈希表，整数数组实现
-- hash: 哈希类型，底层是压缩列表，哈希表实现
-- Sorted Set: 有序集合，按照score排序，底层是压缩列表，跳表实现
-- bitmap: 底层使用string类型实现，string底层的buf就是字节数组
-- HyperLogLog:  是一种用于统计基数的数据集合类型, HyperLogLog 的统计规则是基于概率完成的，所以它给出的统计结果是有一定误差的，标准误算率是 0.81%。
-- GEO: 可以记录经纬度形式的地理位置信息，被广泛地应用在 LBS 服务中。GEO 本身并没有设计新的底层数据结构，而是直接使用了 Sorted Set 集合类型。GEO使用 GeoHash 编码方法实现了经纬度到 Sorted Set 中元素权重分数的转换。
+  - **ziplist**：压缩列表。当元素数量小于**hash-max-ziplist-entries**（默认512）时、同时所有值小于**hash-max-ziplist-value**（默认64）字节时，Redis会使用ziplist作为哈希的内部实现。ziplist使用更加紧凑的结构实现多个元素的连续存储，比较节省内存。
+
+  - **hashtable**：哈希表。当无法满足ziplist的要求是，转用hashtable作为其内部实现。
+
+    Redis采用链式哈希解决冲突。触发Hash扩容条件时，采用**渐进式Rehash**的方式进行数据迁移。
+
+    - 扩容条件：元素总数超过Buckets数量时，就会触发扩容条件
+    - 缩容条件：元素总数少于Bucket数量的10%时，就会触发缩容条件
+  
+- **列表：** 早期列表类型的内部编码有2种：
+
+  - ziplist：压缩列表。为了节省空间,数组每个元素都要占同样大小，压缩列表记录每个元素长度就能使用更少的空间保存数据，当元素数量小于list-max-ziplist-entries（默认512）时、同时所有值小于list-max-ziplist-value（默认64）字节时，Redis会使用ziplist作为列表的内部实现。注：**此规则在v6.2版本已放弃**
+
+  - **linkedlist**：当列表类型无法满足ziplist的条件时，Redis会使用linkedlist作为列表的内部实现。
+
+  但是目前已经完全采用**quicklist**代替。quicklist可简述为：
+
+  ![Screen Shot 2021-10-19 at 8.39.26 PM](.redis.assets/Screen Shot 2021-10-19 at 8.39.26 PM-1641560290636.png)
+
+  其中，在quicklist中有两个关键的概配置项：
+
+  - `list-max-ziplist-size `：ziplist长度，默认为8Kb
+  - `compress-depth`：压缩深度，默认为0，表示不压缩
+
+- **集合:**集合类型的内部编码有2种：
+
+  - **intset**：整数集合。一个由整数组成的有序集合，从而便于在上面进行二分查找，用于快速地判断一个元素是否属于这个集合。与ziplist类似，对于大整数和小整数（按绝对值）采取了不同的编码，尽量对内存的使用进行了优化。当集合中的元素都是整数，且元素个数小于**set-max-intset-entries**（默认512）时，Redis会使用intset作为集合的内部实现。
+
+  - **hashtable**：哈希表。当集合类型无法满足intset条件时，Redis会使用hashtable作为集合的内部实现。
+
+- **有序集合:** 有序集合的内部编码有2种：
+
+  - **ziplist**：压缩列表。当有序集合的元素个数小于**zset-max-ziplist-entries**（默认128个），同时每个元素的值都小于**zset-max-ziplist-value**（默认64字节）时，Redis会用ziplist来作为有序集合的内部实现。
+
+  - **skiplist**：跳跃表。利用多层索引实现类似二分和平衡树的查找效率。当不满足ziplist条件时，有序集合会使用skiplist作为内部实现。
+
+- **bitmap:** 底层使用string类型实现，string底层的buf就是字节数组
+
+- **HyperLogLog:**  是一种用于统计基数的数据集合类型, HyperLogLog 的统计规则是基于概率完成的，所以它给出的统计结果是有一定误差的，标准误算率是 0.81%。
+
+- **GEO:** 可以记录经纬度形式的地理位置信息，被广泛地应用在 LBS 服务中。GEO 本身并没有设计新的底层数据结构，而是直接使用了 Sorted Set 集合类型。GEO使用 GeoHash 编码方法实现了经纬度到 Sorted Set 中元素权重分数的转换。
 
 ### redis 单线程模型
 
