@@ -27,11 +27,11 @@ Kafka体系架构=M个producer +N个broker +K个consumer+ZK集群
 
 **同一个partition内的消息只能被同一个组中的一个consumer消费。当消费者数量多于partition的数量时，多余的消费者空闲。**
 
-![](.kafka.assets/kafka01.webp)
+![](.assets/kafka01.webp)
 
 **启动多个组，则会使同一个消息被消费多次**
 
-![](.kafka.assets/kafka02.webp)
+![](.assets/kafka02.webp)
 
 ### 分区策略
 
@@ -141,11 +141,11 @@ Apache Kafka 自己定义了一组请求协议，用于实现各种各样的交�
 
    
 
-<img src=".kafka.assets/kafka03.jpg"  />
+<img src=".assets/kafka03.jpg"  />
 
 Kafka 的 Broker 端有个 SocketServer 组件，对应的 Acceptor 线程和一个网络线程池。Kafka 提供了 Broker 端参数 num.network.threads，用于调整该网络线程池的线程数。其默认值是 3，表示每台 Broker 启动时会创建 3 个网络线程，专门处理客户端发送的请求，Acceptor 线程采用轮询的方式将入站请求公平地发到所有网络线程中。
 
-<img src=".kafka.assets/kafka04.jpg"  />
+<img src=".assets/kafka04.jpg"  />
 
 当网络线程拿到请求后，它不是自己处理，而是将请求放入到一个共享请求队列中。Broker 端还有个 IO 线程池，负责从该队列中取出请求，执行真正的处理。如果是 PRODUCE 生产请求，则将消息写入到底层的磁盘日志中；如果是 FETCH 请求，则从磁盘或页缓存中读取消息。IO 线程池处中的线程才是执行请求逻辑的线程。Broker 端参数 num.io.threads 控制了这个线程池中的线程数。目前该参数默认值是 8，表示每台 Broker 启动后自动创建 8 个 IO 线程处理请求。
 
@@ -177,7 +177,7 @@ Kafka 的 Broker 端有个 SocketServer 组件，对应的 Acceptor 线程和一
 
 ​	0.11 版本控制器的底层设计，**把多线程的方案改成了单线程加事件队列的方案。**引入了一个事件处理线程，统一处理各种控制器事件，然后控制器将原来执行的操作全部建模成一个个独立的事件，发送到专属的事件队列中，供此线程消费。
 
-![](.kafka.assets/kafka05.jpg)
+![](.assets/kafka05.jpg)
 
 **tips：**
 
@@ -191,7 +191,7 @@ Kafka 的 Broker 端有个 SocketServer 组件，对应的 Acceptor 线程和一
 
 **位移值等于高水位的消息也属于未提交消息。也就是说，高水位上的消息是不能被消费者消费的。**
 
-![](.kafka.assets/kafka06.webp)
+![](.assets/kafka06.webp)
 
 
 

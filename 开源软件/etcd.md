@@ -8,7 +8,7 @@
 
 ### 架构
 
-![](.etcd.assets/etcd.webp)
+![](.assets/etcd.webp)
 
 - **Client 层：**Client 层包括 client v2 和 v3 两个大版本 API 客户端库，提供了简洁易用的 API，同时支持负载均衡、节点间故障自动转移，可极大降低业务使用 etcd 复杂度，提升开发效率、服务可用性。
 - **API 网络层：**API 网络层主要包括 client 访问 server 和 server 节点之间的通信协议。一方面，client 访问 etcd server 的 API 分为 v2 和 v3 两个大版本。v2 API 使用 HTTP/1.x 协议，v3 API 使用 gRPC 协议。同时 v3 通过 etcd grpc-gateway 组件也支持 HTTP/1.x 协议，便于各种语言的服务调用。另一方面，server 之间通信协议，是指节点间通过 Raft 算法实现数据复制和 Leader 选举等功能时使用的 HTTP 协议。
@@ -85,7 +85,7 @@ etcd MVCC 具体方案如下：
 
 treeIndex 与 boltdb 关系如下面的读事务流程图所示，从 treeIndex 中获取 key hello 的版本号，再以版本号作为 boltdb 的 key，从 boltdb 中获取其 value 信息。
 
-![](.asserts/etcd_mvcc.webp)
+![](.assets/etcd_mvcc.webp)
 
 **treeIndex**
 
@@ -156,7 +156,7 @@ etcdserver 从 Raft 模块获取到以上消息和日志条目后，作为 Leade
 
 **WAL 日志结构**
 
-![wal](.asserts/wal.webp)
+![wal](.assets/wal.webp)
 
 WAL由多种类型的 WAL 记录顺序追加写入组成，每个记录由类型、数据、循环冗余校验码组成。不同类型的记录通过 Type 字段区分，Data 为对应记录内容，CRC 为循环校验码信息。
 
@@ -201,7 +201,7 @@ MVCC 机制是基于多版本技术实现的一种乐观锁机制，它乐观地
 
 MVCC 主要由两部分组成，一个是内存索引模块 treeIndex，保存 key 的历史版本号信息，另一个是 boltdb 模块，用来持久化存储 key-value 数据。
 
-![mvcc_write](.asserts/mvcc_write.webp)
+![mvcc_write](.assets/mvcc_write.webp)
 
 **treeIndex**
 

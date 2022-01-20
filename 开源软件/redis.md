@@ -6,7 +6,7 @@
 
 那么，所谓的 Redis 知识全景图都包括什么呢？简单来说，就是“两大维度，三大主线”。
 
-<img src=".redis.assets/redis01.webp" style="zoom: 50%;" />
+<img src=".assets/redis01.webp" style="zoom: 50%;" />
 
 “两大维度”就是指系统维度和应用维度，“三大主线”也就是指高性能、高可靠和高可扩展。
 
@@ -20,7 +20,7 @@
 
 一个键值数据库包括了**访问框架**、**索引模块**、**操作模块**和**存储模块**四部分。
 
-<img src=".redis.assets/redis02.png" style="zoom: 67%;" />
+<img src=".assets/redis02.png" style="zoom: 67%;" />
 
 - **访问框架**：通过网络框架以 Socket 通信的形式对外提供键值对操作，这种形式可以提供广泛的键值存储服务。在上图中，我们可以看到，网络框架中包括 Socket Server 和协议解析。
 - **操作模块**： 封装对键值操作的接口
@@ -30,7 +30,7 @@
 
 ### Redis的数据结构和实现
 
-基础数据结构： string，list，set，hash，sortset
+基础数据结构： string，list，set，sortset，hash
 
 拓展数据类型： bitmap，HyperLogLog，GEO
 
@@ -38,7 +38,7 @@
   
   - int：8字节的长整形
   - embstr：小于等于39字节的字符串
-- raw：大于39字节的字符串
+  - raw：大于39字节的字符串
   
   底层由简单动态字符串(Simple Dynamic String, SDS) len+alloc+buf字节数组组成:
   
@@ -46,6 +46,32 @@
   - alloc: 4个字节，表示 buf 的实际分配长度
   - buf: 字节数组保存实际数据,'\0'结尾
   
+- **列表：** 早期列表类型的内部编码有2种：
+
+  - ziplist：压缩列表。为了节省空间,数组每个元素都要占同样大小，压缩列表记录每个元素长度就能使用更少的空间保存数据，当元素数量小于list-max-ziplist-entries（默认512）时、同时所有值小于list-max-ziplist-value（默认64）字节时，Redis会使用ziplist作为列表的内部实现。注：**此规则在v6.2版本已放弃**
+  - **linkedlist**：当列表类型无法满足ziplist的条件时，Redis会使用linkedlist作为列表的内部实现。
+
+  但是目前已经完全采用**quicklist**代替。quicklist可简述为：
+
+  ![Screen Shot 2021-10-19 at 8.39.26 PM](.assets/Screen Shot 2021-10-19 at 8.39.26 PM-1641560290636.png)
+
+  其中，在quicklist中有两个关键的概配置项：
+
+    - `list-max-ziplist-size `：ziplist长度，默认为8Kb
+    - `compress-depth`：压缩深度，默认为0，表示不压缩
+
+- **集合:**集合类型的内部编码有2种：
+
+  - **intset**：整数集合。一个由整数组成的集合，与ziplist类似，对于大整数和小整数（按绝对值）采取了不同的编码，尽量对内存的使用进行了优化。当集合中的元素都是整数，且元素个数小于**set-max-intset-entries**（默认512）时，Redis会使用intset作为集合的内部实现。
+
+  - **hashtable**：哈希表。当集合类型无法满足intset条件时，Redis会使用hashtable作为集合的内部实现。
+
+- **有序集合:** 有序集合的内部编码有2种：
+
+    - **ziplist**：压缩列表。当有序集合的元素个数小于**zset-max-ziplist-entries**（默认128个），同时每个元素的值都小于**zset-max-ziplist-value**（默认64字节）时，Redis会用ziplist来作为有序集合的内部实现。
+
+    - **skiplist**：跳跃表。利用多层索引实现类似二分和平衡树的查找效率，并且可以满足范围查询。当不满足ziplist条件时，有序集合会使用skiplist作为内部实现。
+
 - **哈希**：哈希类型的内部编码有2种：
 
   - **ziplist**：压缩列表。当元素数量小于**hash-max-ziplist-entries**（默认512）时、同时所有值小于**hash-max-ziplist-value**（默认64）字节时，Redis会使用ziplist作为哈希的内部实现。ziplist使用更加紧凑的结构实现多个元素的连续存储，比较节省内存。
@@ -56,33 +82,6 @@
 
     - 扩容条件：元素总数超过Buckets数量时，就会触发扩容条件
     - 缩容条件：元素总数少于Bucket数量的10%时，就会触发缩容条件
-  
-- **列表：** 早期列表类型的内部编码有2种：
-
-  - ziplist：压缩列表。为了节省空间,数组每个元素都要占同样大小，压缩列表记录每个元素长度就能使用更少的空间保存数据，当元素数量小于list-max-ziplist-entries（默认512）时、同时所有值小于list-max-ziplist-value（默认64）字节时，Redis会使用ziplist作为列表的内部实现。注：**此规则在v6.2版本已放弃**
-
-  - **linkedlist**：当列表类型无法满足ziplist的条件时，Redis会使用linkedlist作为列表的内部实现。
-
-  但是目前已经完全采用**quicklist**代替。quicklist可简述为：
-
-  ![Screen Shot 2021-10-19 at 8.39.26 PM](.redis.assets/Screen Shot 2021-10-19 at 8.39.26 PM-1641560290636.png)
-
-  其中，在quicklist中有两个关键的概配置项：
-
-  - `list-max-ziplist-size `：ziplist长度，默认为8Kb
-  - `compress-depth`：压缩深度，默认为0，表示不压缩
-
-- **集合:**集合类型的内部编码有2种：
-
-  - **intset**：整数集合。一个由整数组成的有序集合，从而便于在上面进行二分查找，用于快速地判断一个元素是否属于这个集合。与ziplist类似，对于大整数和小整数（按绝对值）采取了不同的编码，尽量对内存的使用进行了优化。当集合中的元素都是整数，且元素个数小于**set-max-intset-entries**（默认512）时，Redis会使用intset作为集合的内部实现。
-
-  - **hashtable**：哈希表。当集合类型无法满足intset条件时，Redis会使用hashtable作为集合的内部实现。
-
-- **有序集合:** 有序集合的内部编码有2种：
-
-  - **ziplist**：压缩列表。当有序集合的元素个数小于**zset-max-ziplist-entries**（默认128个），同时每个元素的值都小于**zset-max-ziplist-value**（默认64字节）时，Redis会用ziplist来作为有序集合的内部实现。
-
-  - **skiplist**：跳跃表。利用多层索引实现类似二分和平衡树的查找效率。当不满足ziplist条件时，有序集合会使用skiplist作为内部实现。
 
 - **bitmap:** 底层使用string类型实现，string底层的buf就是字节数组
 
@@ -102,7 +101,7 @@ Linux 中的 IO 多路复用机制是指一个线程处理多个 IO 流，就是
 
 下图就是基于多路复用的 Redis IO 模型。图中的多个 FD 就是刚才所说的多个套接字。Redis 网络框架调用 epoll 机制，让内核监听这些套接字。此时，Redis 线程不会阻塞在某一个特定的监听或已连接套接字上，也就是说，不会阻塞在某一个特定的客户端请求处理上。正因为此，Redis 可以同时和多个客户端连接并处理请求，从而提升并发性。
 
-<img src=".redis.assets/redis04.webp" style="zoom:25%;" />
+<img src=".assets/redis04.webp" style="zoom:25%;" />
 
 Redis单线程处理IO请求性能瓶颈：操作bigkey、范围操作、记录日志等。由于单线程单个请求处理时间过长会阻塞其他操作。
 
@@ -129,7 +128,7 @@ Redis 是先执行命令，把数据写入内存，然后才记录日志。redis
 
 	- Always，同步写回：每个写命令执行完，立马同步地将日志写回磁盘；
 	- Everysec，每秒写回：每个写命令执行完，只是先把日志写到 AOF 文件的内存缓冲区，每隔一秒把缓冲区中的内容写入磁盘；
-	- No，操作系统控制的写回：每个写命令执行完，只是先把日志写到 AOF 文件的内存缓冲区，由操作系统决定何时将缓冲区内容写回磁盘。
+	- No，操作系统控制的写回：每个写命令执行完，只是先把日志写到 AOF 文件的内存缓冲区，由操作系统决定何时将缓冲区内容写回磁盘。最长的同步周期为30s
 
 ##### AOF 重写机制
 
@@ -152,7 +151,7 @@ Redis 提供了两个命令来生成 RDB 文件，分别是 save 和 bgsave。
 
 bgsave方式为了避免阻塞，Redis 就会借助操作系统提供的写时复制技术（Copy-On-Write, COW），在执行快照的同时，正常处理写操作。bgsave 子进程是由主线程 fork 生成的，可以共享主线程的所有内存数据。主线程 fork 出 bgsave 子进程后，bgsave 子进程实际是复制了主线程的页表。这些页表中，就保存了在执行 bgsave 命令时，主线程的所有数据块在内存中的物理地址。这样一来，bgsave 子进程生成 RDB 时，就可以根据页表读取这些数据，再写入磁盘中。如果此时，主线程接收到了新写或修改操作，那么，主线程会使用写时复制机制。具体来说，写时复制就是指，主线程在有写操作时，才会把这个新写或修改后的数据写入到一个新的物理地址中，并修改自己的页表映射。
 
-<img src=".redis.assets/redis05.webp" style="zoom: 25%;" />
+<img src=".assets/redis05.webp" style="zoom: 25%;" />
 
 
 
@@ -172,7 +171,7 @@ Redis 提供了主从库模式，以保证数据副本的一致，主从库之�
 
 ##### 全量复制
 
-<img src=".redis.assets/redis06.webp" style="zoom: 25%;" />
+<img src=".assets/redis06.webp" style="zoom: 25%;" />
 
 psync 命令包含了主库的 runID 和复制进度 offset 两个参数
 
@@ -248,7 +247,7 @@ Redis-Cluster采用无中心结构,它的特点如下：
 
 Redis 提供的 pub/sub 机制，也就是发布 / 订阅机制。主库上有一个名为“__sentinel__:hello”的频道，不同哨兵就是通过它来相互发现，实现互相通信的。然后哨兵向主库发送 INFO 命令，得知从库信息。列举一些常用的频道：
 
-<img src=".redis.assets/redis07.webp" style="zoom: 25%;" />
+<img src=".assets/redis07.webp" style="zoom: 25%;" />
 
 ### 缓存
 
@@ -336,5 +335,26 @@ LRU 策略更加关注数据的时效性，而 LFU 策略更加关注数据的�
 
 当需要查询某个数据时，我们就执行刚刚说的计算过程，先得到这个数据在 bit 数组中对应的 N 个位置。紧接着，我们查看 bit 数组中这 N 个位置上的 bit 值。只要这 N 个 bit 值有一个不为 1，这就表明布隆过滤器没有对该数据做过标记，所以，查询的数据一定没有在数据库中保存。
 
+### 过期删除策略
 
+- 单机
 
+  Redis对于设置了到期时间的Key放置在一个单独的Hash中，采用**定时扫描** + **惰性删除**的策略进行管理。
+
+  - 定时扫描
+
+    Redis会每秒进行10次过期扫描，过期扫描采用了一种简单的贪心算法：
+
+    1. 从过期Hash中随机获取20个Key
+    2. 删除这20个Key中已经过期的Key
+    3. 如果过期Key的数量超过1/4，重复步骤1
+
+    为了防止**过度循环**，单次扫描的处理时间上限为25ms
+
+  - 惰性删除
+
+    客户端在访问这个Key时，Redis会对Key的过期时间进行检查，如果过期了，就立刻删除
+
+- 集群
+
+  从库不会进行过期扫描，从库对过期的处理是被动的。主库在 key 到期时，会在 AOF 文件里增加一条 del 指令，同步到所有的从库，从库通过执行这条 del 指令来删除过期的 key。因为从库的删除过程是异步的，所以在读写分离的情况下，就会出现**读到过期数据**的问题。

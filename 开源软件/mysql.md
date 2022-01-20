@@ -6,7 +6,7 @@ MySQL 软件采用了双授权政策，分为社区版和商业版，由于其�
 
 ### 架构图
 
-![](.mysql.assets/mysql_架构图-1639381518363.jpg)
+![](.assets/mysql_架构图-1639381518363.jpg)
 
 mysql整体架构分为server层和存储引擎层。
 
