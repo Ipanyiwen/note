@@ -32,14 +32,14 @@
    
    	flags     uint8   // hash当前的状态
    	B         uint8   // 2^B个桶的容量
-   	noverflow uint16  // new overflow 计数器，溢出桶的大小
+   	noverflow uint16  // overflow 计数器，溢出桶的大小，每次创建一个新的溢出桶，计数器+1
    	hash0     uint32  // hash种子
    
    	buckets    unsafe.Pointer // 指向桶的指针
-   	oldbuckets unsafe.Pointer // 扩容的时候旧桶的指针
+   	oldbuckets unsafe.Pointer // 扩容的时候旧桶的指针,大小是当前buckets的一半
    	nevacuate  uintptr	// 计数器，用于计算旧的桶分流的大小
    
-   	extra *mapextra  // 溢出桶信息
+   	extra *mapextra  // 溢出桶，当某个桶满了，就会获取nextOverflow存放新的数据
    }
    
    type mapextra struct {
@@ -48,7 +48,7 @@
    	nextOverflow *bmap    // 下一个溢出桶的位置
    }
     
-   type bmap struct {     // bmap 是bucket 指向的数据
+   type bmap struct {     // bmap 是bucket 指向的数据，对应拉链法中的桶
        topbits  [8]uint8     // key的高八位，用于快速判断key是否在当前bucket中
        keys     [8]keytype    // 当前bucket存储的key
        values   [8]valuetype  // 当前bucket存储的value
@@ -62,7 +62,13 @@
    1. 装载因子已经超过 6.5； 翻倍扩容。 LoadFactor（装载因子）= hash表中已存储的键值对的总数量/hash桶的个数（即hmap结构中buckets数组的个数）LoadFactor = count / 2^B 
    2. 哈希使用了太多溢出桶；等量扩容，buckets的大小不会发生变化。 溢出桶太多判断： 当桶总数 < 2 ^ 15 时，如果溢出桶总数 >= 桶总数，则认为溢出桶过多。当桶总数 >= 2 ^ 15 时，直接与 2 ^ 15 比较，当溢出桶总数 >= 2 ^ 15 时，即认为溢出桶太多了。
 
-   2.3 并发安全的map: sync.Map
+   2.3 正常桶与溢出桶的关系
+
+   1. 当桶的数量小于 2^4 时，由于数据较少、使用溢出桶的可能性较低，会省略创建的过程以减少额外开销；
+   2. 当桶的数量多于 2^4 时，会额外创建 2^(B−4) 个溢出桶；
+   3. 正常桶和溢出桶都是一段连续的地址空间（数组），不过正常桶会有指向溢出桶的指针
+
+   2.4 并发安全的map: sync.Map
 
 3. mutex， rwmutex
 
