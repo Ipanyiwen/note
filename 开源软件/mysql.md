@@ -53,12 +53,25 @@ MySQL存储引擎是插件式的，对应多种不同的存储引擎如： Innod
 
 MySQL日志中记录着MySQL数据库运行期间发生的变化，除了平时排查错误和记录请求之外，还有用于灾难恢复和主从复制，事务回滚等操作的日志，比较重要的三种日志： bin log、redo log、 undo log。
 
-- binlog: mysql server层的业务日志，记录所有的变更操作, 所有的存储引擎都可以使用，
-- redo log: 存储引擎层 innodb中的变更日志, WAL设计，修改底层数据太慢，不如直接记录操作日志，等后续再读日志修改数据，保证事务的持久性，redo log是一个固定大小的环形结构。
-  - write pos 是当前记录的位置
-  - checkpoint是最早的日志位置
-  - write pos 和 checkpoint之间的位置就是可以写入的新的数据的区域
-- undo log: 存储引擎层innodb中的反向记录操作日志，提供 回滚 和 多版本并发控制(MVCC)。比如一条 delete 操作在 undo log 中会对应一条 insert 记录，反之亦然。当 update 操作时，它会记录一条相反的 update 记录。当执行 rollback 时，就可以从 undo log 中的逻辑记录读取到相应的内容并进行回滚。MVCC：当读取的某一行被其他事务锁定时，它可以从 undo log 中分析出该行记录以前的数据是什么，从而提供该行版本信息，让用户实现非锁定一致性读取。
+**binlog**: mysql server层的业务日志，记录所有的变更操作, 所有的存储引擎都可以使用，
+
+**redo log:** 存储引擎层 innodb中的变更日志, WAL设计，修改底层数据太慢，不如直接记录操作日志，等后续再读日志修改数据，保证事务的持久性，redo log是一个固定大小的环形结构。
+
+- write pos 是当前记录的位置
+
+- checkpoint是最早的日志位置
+
+- write pos 和 checkpoint之间的位置就是可以写入的新的数据的区域
+
+  数据库中innodb_flush_log_at_trx_commit参数就控制了在事务提交时，如何将buffer中的日志数据刷新到file中.
+
+  该参数支持三种策略：
+
+1. 值为0：提交事务也不进行刷盘操作
+2. 值为1：提交事务一次就刷盘一次（ 默认刷盘策略）
+3. 值为2：每次提交事务时，只会将buffer中的内容写入页面缓存中，不会在将页面缓存中的数据刷盘到file中。
+
+**undo log:** 存储引擎层innodb中的反向记录操作日志，提供 回滚 和 多版本并发控制(MVCC)。比如一条 delete 操作在 undo log 中会对应一条 insert 记录，反之亦然。当 update 操作时，它会记录一条相反的 update 记录。当执行 rollback 时，就可以从 undo log 中的逻辑记录读取到相应的内容并进行回滚。MVCC：当读取的某一行被其他事务锁定时，它可以从 undo log 中分析出该行记录以前的数据是什么，从而提供该行版本信息，让用户实现非锁定一致性读取。
 
 **二阶段提交：** 为了保证bin log 和 redo log一致，innodb执行完写操作后，写入redo log进入prepare， 然后server执行器写入bin log，写入完成后innodb写入redo log进入commit。这样如果redo log 或者bin log写入过程异常重启后，就能根据bin log是否写入成功，redo log选择提交或者回滚。
 
